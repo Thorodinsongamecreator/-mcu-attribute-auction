@@ -1,0 +1,186 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MCU Attribute Auction</title>
+<style>
+:root{--bg:#070b12;--card:#111827;--line:#29364d;--cyan:#45d9ff;--gold:#ffd45a;--red:#ff526b;--muted:#93a0b7}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#17243a,#070b12 55%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;min-height:100vh}
+.app{max-width:720px;margin:auto;padding:14px 12px 28px}.head{text-align:center;padding:8px 0 10px}.head h1{font-size:25px;margin:0;font-weight:900;letter-spacing:1.5px}.head p{margin:5px 0;color:var(--muted);font-size:12px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:8px}.player{background:#0e1522;border:1px solid var(--line);border-radius:14px;padding:10px}.player.active{border-color:var(--cyan);box-shadow:0 0 16px #45d9ff22}.row{display:flex;justify-content:space-between;align-items:center}.name{font-size:13px;font-weight:800}.credits{color:var(--gold);font-size:18px;font-weight:900}.slots{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:8px}.slot{height:48px;border-radius:7px;background:#080d16;border:1px solid #253249;text-align:center;padding:4px 2px;font-size:8px;color:var(--muted);overflow:hidden}.slot b{display:block;color:#73839c;font-size:7px;margin-bottom:3px}.slot.f{border-color:#42cdea;color:#fff;background:#10202a}.slot.f b{color:#68e3ff}
+.stage{margin-top:10px;background:linear-gradient(160deg,#121c2c,#0b111c);border:1px solid var(--line);border-radius:20px;padding:20px 14px;text-align:center;min-height:420px;display:flex;flex-direction:column;justify-content:center}.badge{display:inline-block;margin:auto;padding:6px 11px;border-radius:20px;background:#17253a;color:#7ce6ff;font-size:11px;font-weight:900}.character{font-size:36px;font-weight:950;margin:18px 0 5px}.sub{font-size:12px;color:var(--muted)}.bid{font-size:48px;font-weight:950;color:var(--gold);margin:14px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}.btn{border:0;border-radius:13px;padding:15px 10px;font-size:15px;font-weight:900;color:#fff;background:#1b2940}.btn.primary{background:#0ba8d5;color:#041018}.btn.red{background:#c9344e}.btn.gold{background:#d9aa35;color:#12100a}.btn.full{grid-column:1/-1}.btn:disabled{opacity:.35}
+.log{margin-top:10px;text-align:left;background:#080d15;border-radius:12px;padding:10px;height:90px;overflow:auto;color:#9eabc0;font-size:11px;line-height:1.5}.modal{position:fixed;inset:0;background:#000c;display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:9}.modal.on{display:flex}.sheet{width:100%;max-width:720px;background:#111a28;border:1px solid #3a4a65;border-radius:20px 20px 12px 12px;padding:18px;text-align:center}.sheet h2{margin:0 0 6px;font-size:21px}.sheet p{color:var(--muted);font-size:12px}.input{width:150px;text-align:center;font-size:28px;padding:9px;border-radius:10px;border:0;margin:8px}.attrs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}.attr{background:#17253a;border:1px solid #33445f;border-radius:12px;padding:15px 6px;color:#fff;font-weight:800}.attr:disabled{opacity:.3}.final{display:none;margin-top:12px}.scoregrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.score{background:#111827;border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}.score h3{margin:0;font-size:13px}.score .n{font-size:43px;color:var(--gold);font-weight:950}.reveal{margin-top:9px;background:#080d15;border-radius:12px;padding:12px;font-size:11px;line-height:1.6}
+@media(max-width:390px){.stage{min-height:390px}.character{font-size:31px}.btn{padding:13px 8px}.slot{height:45px;font-size:7px}}
+</style></head><body>
+<div class="app">
+<div class="head"><h1>MCU ATTRIBUTE AUCTION</h1><p>Build your 5-slot fighter. Ratings stay hidden until the final fight.</p></div>
+<div class="players" id="players"></div>
+<div class="stage">
+<span class="badge" id="phase">READY</span>
+<div class="character" id="character">TAP TO SPIN</div>
+<div class="sub" id="sub">Player 1 starts.</div>
+<div class="bid" id="bid">$0</div>
+<div class="buttons">
+<button class="btn primary full" id="spin">🎡 TAP TO SPIN</button>
+<button class="btn gold" id="bidBtn" disabled>💰 BID HIGHER</button>
+<button class="btn red" id="giveBtn" disabled>✋ GIVE UP</button>
+<button class="btn primary full" id="fight" style="display:none">⚔️ REVEAL RATINGS & FIGHT</button>
+</div>
+<div class="log" id="log"></div>
+</div>
+<div class="final" id="final"><div class="scoregrid"><div class="score"><h3>PLAYER 1</h3><div class="n" id="s1">0</div></div><div class="score"><h3>PLAYER 2</h3><div class="n" id="s2">0</div></div></div><div class="reveal" id="details"></div></div>
+</div>
+<div class="modal" id="bidModal"><div class="sheet"><h2 id="bidTitle">Your Bid</h2><p>Enter a bid higher than the current bid and within your credits.</p><input class="input" id="amount" type="number" inputmode="numeric"><br><button class="btn primary" id="confirm">CONFIRM BID</button></div></div>
+<div class="modal" id="placeModal"><div class="sheet"><h2 id="placeTitle">Choose an Attribute</h2><p>The rating is hidden. Choose an open slot.</p><div class="attrs" id="attrs"></div></div></div>
+<script>
+const C=[
+["Iron Man",{Strength:70,IQ:96,Speed:80,Power:78,Technology:100}],
+["Captain America",{Strength:75,IQ:78,Speed:70,Power:65,Technology:45}],
+["Thor",{Strength:94,IQ:70,Speed:72,Power:100,Technology:45}],
+["Hulk",{Strength:100,IQ:65,Speed:55,Power:95,Technology:20}],
+["Black Widow",{Strength:48,IQ:82,Speed:72,Power:50,Technology:52}],
+["Hawkeye",{Strength:45,IQ:80,Speed:55,Power:52,Technology:45}],
+["War Machine",{Strength:78,IQ:78,Speed:76,Power:82,Technology:92}],
+["Falcon",{Strength:55,IQ:75,Speed:84,Power:60,Technology:65}],
+["Winter Soldier",{Strength:74,IQ:72,Speed:69,Power:62,Technology:38}],
+["Spider-Man",{Strength:78,IQ:88,Speed:92,Power:72,Technology:55}],
+["Doctor Strange",{Strength:45,IQ:94,Speed:62,Power:97,Technology:55}],
+["Wanda",{Strength:50,IQ:90,Speed:60,Power:100,Technology:40}],
+["Vision",{Strength:88,IQ:95,Speed:85,Power:96,Technology:88}],
+["Black Panther",{Strength:82,IQ:88,Speed:86,Power:75,Technology:82}],
+["Shuri",{Strength:45,IQ:100,Speed:55,Power:50,Technology:100}],
+["Captain Marvel",{Strength:95,IQ:82,Speed:94,Power:99,Technology:65}],
+["Ant-Man",{Strength:65,IQ:82,Speed:58,Power:72,Technology:78}],
+["Wasp",{Strength:58,IQ:85,Speed:90,Power:68,Technology:82}],
+["Star-Lord",{Strength:58,IQ:78,Speed:72,Power:68,Technology:75}],
+["Gamora",{Strength:82,IQ:75,Speed:80,Power:70,Technology:35}],
+["Drax",{Strength:88,IQ:45,Speed:62,Power:72,Technology:20}],
+["Rocket",{Strength:38,IQ:96,Speed:70,Power:62,Technology:98}],
+["Groot",{Strength:88,IQ:45,Speed:48,Power:80,Technology:20}],
+["Nebula",{Strength:70,IQ:78,Speed:68,Power:58,Technology:88}],
+["Mantis",{Strength:35,IQ:72,Speed:55,Power:82,Technology:20}],
+["Yondu",{Strength:55,IQ:76,Speed:60,Power:78,Technology:58}],
+["Loki",{Strength:72,IQ:90,Speed:62,Power:91,Technology:50}],
+["Valkyrie",{Strength:88,IQ:72,Speed:78,Power:84,Technology:40}],
+["Heimdall",{Strength:85,IQ:78,Speed:65,Power:86,Technology:30}],
+["Nick Fury",{Strength:48,IQ:88,Speed:50,Power:42,Technology:68}],
+["Maria Hill",{Strength:45,IQ:82,Speed:55,Power:40,Technology:62}],
+["Okoye",{Strength:70,IQ:72,Speed:78,Power:60,Technology:45}],
+["M'Baku",{Strength:82,IQ:62,Speed:52,Power:65,Technology:20}],
+["Wong",{Strength:55,IQ:88,Speed:55,Power:88,Technology:35}],
+["America Chavez",{Strength:78,IQ:70,Speed:72,Power:92,Technology:20}],
+["Kate Bishop",{Strength:42,IQ:80,Speed:62,Power:48,Technology:45}],
+["Yelena Belova",{Strength:55,IQ:78,Speed:72,Power:52,Technology:48}],
+["Red Guardian",{Strength:76,IQ:58,Speed:48,Power:62,Technology:25}],
+["John Walker",{Strength:72,IQ:70,Speed:68,Power:60,Technology:40}],
+["Ghost",{Strength:55,IQ:78,Speed:88,Power:72,Technology:80}],
+["Taskmaster",{Strength:62,IQ:80,Speed:82,Power:62,Technology:55}],
+["Shang-Chi",{Strength:78,IQ:82,Speed:88,Power:92,Technology:35}],
+["Katy",{Strength:38,IQ:68,Speed:48,Power:35,Technology:42}],
+["Xu Wenwu",{Strength:88,IQ:82,Speed:76,Power:96,Technology:40}],
+["Kingo",{Strength:72,IQ:70,Speed:70,Power:82,Technology:65}],
+["Ikaris",{Strength:96,IQ:70,Speed:94,Power:96,Technology:30}],
+["Thena",{Strength:90,IQ:82,Speed:86,Power:92,Technology:25}],
+["Makkari",{Strength:70,IQ:72,Speed:100,Power:78,Technology:25}],
+["Gilgamesh",{Strength:96,IQ:60,Speed:65,Power:86,Technology:20}],
+["Phastos",{Strength:58,IQ:98,Speed:58,Power:72,Technology:100}],
+["Sersi",{Strength:48,IQ:88,Speed:52,Power:88,Technology:35}],
+["Druig",{Strength:48,IQ:90,Speed:50,Power:86,Technology:25}],
+["Sprite",{Strength:38,IQ:88,Speed:55,Power:78,Technology:25}],
+["Thanos",{Strength:100,IQ:94,Speed:68,Power:100,Technology:60}],
+["Ultron",{Strength:86,IQ:99,Speed:78,Power:92,Technology:100}],
+["Killmonger",{Strength:78,IQ:74,Speed:76,Power:65,Technology:52}],
+["Hela",{Strength:98,IQ:88,Speed:82,Power:98,Technology:35}],
+["Ego",{Strength:96,IQ:90,Speed:62,Power:98,Technology:35}],
+["Ronan",{Strength:92,IQ:72,Speed:58,Power:82,Technology:55}],
+["Mysterio",{Strength:42,IQ:86,Speed:52,Power:78,Technology:92}],
+["Vulture",{Strength:62,IQ:78,Speed:70,Power:65,Technology:88}],
+["Green Goblin",{Strength:82,IQ:78,Speed:72,Power:78,Technology:82}],
+["Doctor Octopus",{Strength:68,IQ:94,Speed:58,Power:75,Technology:96}],
+["Electro",{Strength:62,IQ:72,Speed:78,Power:94,Technology:82}],
+["Sandman",{Strength:96,IQ:55,Speed:45,Power:90,Technology:20}],
+["Abomination",{Strength:96,IQ:58,Speed:50,Power:86,Technology:20}],
+["Red Hulk",{Strength:100,IQ:62,Speed:58,Power:94,Technology:25}],
+["Leader",{Strength:35,IQ:100,Speed:40,Power:48,Technology:72}],
+["Kingpin",{Strength:72,IQ:76,Speed:42,Power:50,Technology:30}],
+["Daredevil",{Strength:58,IQ:82,Speed:88,Power:58,Technology:25}],
+["Punisher",{Strength:62,IQ:78,Speed:65,Power:58,Technology:62}],
+["Echo",{Strength:58,IQ:70,Speed:68,Power:52,Technology:30}],
+["Moon Knight",{Strength:78,IQ:72,Speed:65,Power:78,Technology:25}],
+["She-Hulk",{Strength:94,IQ:86,Speed:58,Power:82,Technology:20}],
+["Ms. Marvel",{Strength:62,IQ:78,Speed:60,Power:80,Technology:35}],
+["Agatha Harkness",{Strength:42,IQ:92,Speed:50,Power:96,Technology:30}],
+["Mobius",{Strength:38,IQ:82,Speed:45,Power:30,Technology:40}],
+["Sylvie",{Strength:62,IQ:86,Speed:60,Power:90,Technology:45}],
+["Kang",{Strength:65,IQ:100,Speed:58,Power:90,Technology:100}],
+["Deadpool",{Strength:70,IQ:76,Speed:82,Power:78,Technology:42}],
+["Wolverine",{Strength:94,IQ:70,Speed:74,Power:88,Technology:25}],
+["Mr. Fantastic",{Strength:48,IQ:100,Speed:45,Power:68,Technology:96}],
+["Invisible Woman",{Strength:55,IQ:92,Speed:62,Power:92,Technology:72}],
+["Human Torch",{Strength:72,IQ:72,Speed:92,Power:96,Technology:45}],
+["The Thing",{Strength:100,IQ:62,Speed:42,Power:88,Technology:20}],
+["Namor",{Strength:92,IQ:82,Speed:88,Power:92,Technology:45}],
+["Sentry",{Strength:100,IQ:85,Speed:96,Power:100,Technology:30}],
+["US Agent",{Strength:72,IQ:70,Speed:68,Power:60,Technology:42}]
+];
+const A=["Strength","IQ","Speed","Power","Technology"];
+let P=[{credits:50,slots:{},chars:[]},{credits:50,slots:{},chars:[]}],pool=[...C],turn=0,active=null,bid=0,last=null,phase="spin",winner=null;
+const $=x=>document.getElementById(x);
+function log(x){$("log").innerHTML="<div>"+x+"</div>"+$("log").innerHTML}
+function render(){
+$("players").innerHTML=P.map((p,i)=>`<div class="player ${phase!="done"&&turn==i?"active":""}"><div class="row"><span class="name">PLAYER ${i+1}</span><span class="credits">${p.credits} CR</span></div><div class="slots">${A.map(a=>`<div class="slot ${p.slots[a]?"f":""}"><b>${a}</b>${p.slots[a]||"OPEN"}</div>`).join("")}</div></div>`).join("");
+$("bid").textContent="$"+bid;
+$("spin").disabled=phase!="spin";
+$("bidBtn").disabled=phase!="auction";$("giveBtn").disabled=phase!="auction";
+}
+function ui(){
+render();
+if(phase=="spin"){$("phase").textContent="SPIN";$("sub").textContent=`Player ${turn+1} spins the wheel.`}
+if(phase=="auction"){$("phase").textContent="AUCTION";$("sub").textContent=`Player ${turn+1}: bid higher or give up.`}
+if(phase=="place"){$("phase").textContent="PLACEMENT";$("sub").textContent=`Player ${winner+1}: choose an open attribute.`}
+}
+$("spin").onclick=()=>{
+if(!pool.length)return end();
+let i=Math.floor(Math.random()*pool.length);active=pool.splice(i,1)[0];bid=0;last=null;phase="auction";
+$("character").textContent=active[0];$("sub").textContent=`Player ${turn+1}: bid higher or give up.`;log(`🎡 Player ${turn+1} revealed <b>${active[0]}</b>. Ratings hidden.`);ui()
+};
+$("bidBtn").onclick=()=>{$("bidTitle").textContent=`PLAYER ${turn+1} — BID`;$("amount").min=bid+1;$("amount").max=P[turn].credits;$("amount").value=bid+1;$("bidModal").classList.add("on");setTimeout(()=>$("amount").focus(),100)};
+$("confirm").onclick=()=>{
+let n=Number($("amount").value);
+if(!Number.isInteger(n)||n<=bid||n>P[turn].credits){alert(`Bid must be above $${bid} and no more than ${P[turn].credits} CR.`);return}
+last=turn;bid=n;log(`💰 Player ${turn+1} bids $${n}.`);turn=1-turn;$("bidModal").classList.remove("on");
+if(P[turn].credits<=bid){log(`🚫 Player ${turn+1} cannot afford a higher bid. Player ${last+1} wins.`);win(last)}else ui()
+};
+$("giveBtn").onclick=()=>{log(`✋ Player ${turn+1} gives up.`);win(last===null?1-turn:last)};
+function win(w){
+winner=w;P[w].credits-=bid;P[w].chars.push(active[0]);phase="place";$("placeTitle").textContent=`PLAYER ${w+1}: PLACE ${active[0]}`;$("attrs").innerHTML="";
+A.forEach(a=>{let b=document.createElement("button");b.className="attr";b.textContent=P[w].slots[a]?a+" — LOCKED":a;b.disabled=!!P[w].slots[a];b.onclick=()=>place(a);$("attrs").appendChild(b)});
+$("placeModal").classList.add("on");ui()
+}
+function place(a){
+P[winner].slots[a]=active[0];$("placeModal").classList.remove("on");log(`📌 Player ${winner+1} placed <b>${active[0]}</b> in <b>${a}</b>. Rating remains hidden.`);
+if(P[winner].chars.length>=5){
+  const other=1-winner;
+  if(P[other].chars.length<5) autoFillOther(other);
+  if(P[0].chars.length>=5&&P[1].chars.length>=5){end();return}
+}
+turn=1-winner;active=null;bid=0;last=null;phase="spin";$("character").textContent="TAP TO SPIN";ui()
+}
+function autoFillOther(playerIndex){
+  const p=P[playerIndex], open=A.filter(a=>!p.slots[a]);
+  log(`🎲 Player ${playerIndex+1} is finished. Remaining heroes are assigned randomly to the other player.`);
+  while(open.length&&pool.length){
+    const hero=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+    const slot=open.splice(Math.floor(Math.random()*open.length),1)[0];
+    p.slots[slot]=hero[0]; p.chars.push(hero[0]);
+    log(`🎲 ${hero[0]} → Player ${playerIndex+1}'s ${slot}. Rating remains hidden.`);
+  }
+}
+function end(){
+phase="done";render();$("spin").style.display="none";$("bidBtn").style.display="none";$("giveBtn").style.display="none";$("fight").style.display="block";$("phase").textContent="FINAL FIGHT";$("character").textContent="READY";$("sub").textContent="Both teams are complete. Reveal the ratings."
+}
+$("fight").onclick=()=>{
+let totals=[0,0],d="";
+P.forEach((p,i)=>A.forEach(a=>{let c=p.slots[a],x=C.find(v=>v[0]==c);let n=x[1][a];totals[i]+=n;d+=`P${i+1} • <b>${a}</b> • ${c} = <b>${n}</b><br>`}));
+$("s1").textContent=totals[0];$("s2").textContent=totals[1];$("details").innerHTML=d+`<hr><b>FINAL: Player 1 ${totals[0]} — Player 2 ${totals[1]}</b>`;$("final").style.display="block";$("fight").style.display="none";$("sub").textContent="RATINGS REVEALED — FIGHT COMPLETE!"
+};
+ui();
+</script></body></html>
